@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: text-service
-        image: nimbus/text-service:latest
+        image: ghcr.io/vinaysurtani/nimbus-text-service:6fcce079dbc5207a2cb9376c8322c8d83831b50b
         ports:
         - containerPort: 8001
         - containerPort: 50051

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: gateway
-        image: nimbus/gateway:latest
+        image: ghcr.io/vinaysurtani/nimbus-gateway:6fcce079dbc5207a2cb9376c8322c8d83831b50b
         ports:
         - containerPort: 8080
         env:
