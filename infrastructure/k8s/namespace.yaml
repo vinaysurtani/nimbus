@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nimbus
+  labels:
+    name: nimbus
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nimbus-config
+  namespace: nimbus
+data:
+  redis.url: "redis:6379"
+  log.level: "info"

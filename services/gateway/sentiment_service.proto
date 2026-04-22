@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package sentiment_service;
+
+service SentimentAnalyzer {
+    rpc AnalyzeSentiment(SentimentRequest) returns (SentimentResponse);
+    rpc BatchAnalyze(BatchSentimentRequest) returns (BatchSentimentResponse);
+}
+
+message SentimentRequest {
+    string text = 1;
+}
+
+message SentimentResponse {
+    string sentiment = 1;
+    float confidence = 2;
+    float polarity = 3;
+    float subjectivity = 4;
+}
+
+message BatchSentimentRequest {
+    repeated string texts = 1;
+}
+
+message BatchSentimentResponse {
+    repeated SentimentResponse results = 1;
+}

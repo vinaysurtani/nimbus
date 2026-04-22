@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Go
+services/gateway/gateway
+services/gateway/*.exe
+*.o
+*.a
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.secret
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.log
+
+# Pulumi
+.pulumi/

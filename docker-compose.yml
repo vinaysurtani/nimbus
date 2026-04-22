@@ -1,0 +1,69 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:15
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nimbus}
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-nimbus}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  text-service:
+    build: ./services/text-service
+    ports:
+      - "8001:8001"
+      - "50051:50051"
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+
+  sentiment-service:
+    build: ./services/sentiment-service
+    ports:
+      - "8002:8002"
+      - "50052:50052"
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+
+  image-service:
+    build: ./services/image-service
+    ports:
+      - "8003:8003"
+      - "50053:50053"
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+
+  gateway:
+    build: ./services/gateway
+    ports:
+      - "8080:8080"
+    env_file: .env
+    environment:
+      REDIS_URL: redis:6379
+      DB_URL: postgres://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nimbus}?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      text-service:
+        condition: service_started
+      sentiment-service:
+        condition: service_started
+      image-service:
+        condition: service_started
+
+volumes:
+  postgres_data:

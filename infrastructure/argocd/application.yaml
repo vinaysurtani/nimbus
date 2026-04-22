@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nimbus-platform
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/vinaysurtani/nimbus
+    targetRevision: HEAD
+    path: infrastructure/k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: nimbus
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: nimbus-project
+  namespace: argocd
+spec:
+  description: Nimbus AI Platform
+  sourceRepos:
+  - 'https://github.com/vinaysurtani/nimbus'
+  destinations:
+  - namespace: nimbus
+    server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+  - group: ''
+    kind: Namespace
+  namespaceResourceWhitelist:
+  - group: ''
+    kind: Service
+  - group: apps
+    kind: Deployment

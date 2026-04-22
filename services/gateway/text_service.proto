@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package text_service;
+
+service TextProcessor {
+    rpc ProcessText(TextRequest) returns (TextResponse);
+    rpc ExtractKeywords(TextRequest) returns (KeywordsResponse);
+}
+
+message TextRequest {
+    string text = 1;
+}
+
+message TextResponse {
+    string processed_text = 1;
+    int32 word_count = 2;
+    int32 char_count = 3;
+}
+
+message KeywordsResponse {
+    repeated string keywords = 1;
+}
