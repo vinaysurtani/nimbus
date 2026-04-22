@@ -21,9 +21,9 @@ export default function App() {
           </button>
         ))}
       </div>
-      {tab === 'chat' && <ChatPanel />}
-      {tab === 'rag' && <RAGPanel />}
-      {tab === 'metrics' && <MetricsPanel />}
+      <div style={{ display: tab === 'chat' ? 'contents' : 'none' }}><ChatPanel /></div>
+      <div style={{ display: tab === 'rag' ? 'contents' : 'none' }}><RAGPanel /></div>
+      <div style={{ display: tab === 'metrics' ? 'contents' : 'none' }}><MetricsPanel /></div>
     </>
   )
 }

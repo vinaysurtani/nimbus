@@ -121,7 +121,6 @@ func (g *Gateway) logRequest(endpoint, method string, duration time.Duration, ca
 }
 
 func (g *Gateway) processText(c *gin.Context) {
-	start := time.Now()
 	var req TextRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -135,7 +134,7 @@ func (g *Gateway) processText(c *gin.Context) {
 	if err == nil {
 		var response TextResponse
 		json.Unmarshal([]byte(cached), &response)
-		g.logRequest("/api/v1/text/process", "POST", time.Since(start), true)
+		c.Set("cached", true)
 		c.JSON(http.StatusOK, response)
 		return
 	}
@@ -156,13 +155,10 @@ func (g *Gateway) processText(c *gin.Context) {
 	// Cache with TTL
 	responseJSON, _ := json.Marshal(response)
 	g.redis.Set(context.Background(), cacheKey, responseJSON, 10*time.Minute)
-
-	g.logRequest("/api/v1/text/process", "POST", time.Since(start), false)
 	c.JSON(http.StatusOK, response)
 }
 
 func (g *Gateway) analyzeSentiment(c *gin.Context) {
-	start := time.Now()
 	var req TextRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -176,7 +172,7 @@ func (g *Gateway) analyzeSentiment(c *gin.Context) {
 	if err == nil {
 		var response SentimentResponse
 		json.Unmarshal([]byte(cached), &response)
-		g.logRequest("/api/v1/sentiment/analyze", "POST", time.Since(start), true)
+		c.Set("cached", true)
 		c.JSON(http.StatusOK, response)
 		return
 	}
@@ -197,8 +193,6 @@ func (g *Gateway) analyzeSentiment(c *gin.Context) {
 	// Cache with TTL
 	responseJSON, _ := json.Marshal(response)
 	g.redis.Set(context.Background(), cacheKey, responseJSON, 15*time.Minute)
-
-	g.logRequest("/api/v1/sentiment/analyze", "POST", time.Since(start), false)
 	c.JSON(http.StatusOK, response)
 }
 
@@ -368,7 +362,11 @@ func main() {
 	r.Use(func(c *gin.Context) {
 		start := time.Now()
 		c.Next()
-		log.Printf("%s %s - %v", c.Request.Method, c.Request.URL.Path, time.Since(start))
+		duration := time.Since(start)
+		isCached, _ := c.Get("cached")
+		cached, _ := isCached.(bool)
+		gateway.logRequest(c.FullPath(), c.Request.Method, duration, cached)
+		log.Printf("%s %s - %v", c.Request.Method, c.Request.URL.Path, duration)
 	})
 
 	api := r.Group("/api/v1")
