@@ -247,27 +247,83 @@ func (g *Gateway) health(c *gin.Context) {
 			"redis":    g.redis.Ping(context.Background()).Err() == nil,
 			"postgres": g.db.Ping() == nil,
 		},
-		"version": "enhanced-v1.0",
+		"version": "enhanced-v2.0",
 	})
+}
+
+// proxyMultipart forwards multipart file uploads to a downstream service.
+func (g *Gateway) proxyMultipart(target string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid multipart form"})
+			return
+		}
+		resp, err := g.httpClient.Post(target, c.Request.Header.Get("Content-Type"), c.Request.Body)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "image service unavailable"})
+			return
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), body)
+	}
+}
+
+func (g *Gateway) streamChat(c *gin.Context) {
+	var req TextRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	reqBody, _ := json.Marshal(req)
+	resp, err := g.httpClient.Post("http://text-service:8001/stream", "application/json", bytes.NewBuffer(reqBody))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "text service unavailable"})
+		return
+	}
+	defer resp.Body.Close()
+
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("X-Accel-Buffering", "no")
+
+	buf := make([]byte, 4096)
+	for {
+		n, err := resp.Body.Read(buf)
+		if n > 0 {
+			c.Writer.Write(buf[:n])
+			c.Writer.Flush()
+		}
+		if err != nil {
+			break
+		}
+	}
 }
 
 func main() {
 	gateway := NewGateway()
-	
+
 	r := gin.Default()
 	r.SetTrustedProxies([]string{"127.0.0.1", "::1"})
-	
-	// Middleware for request timing
+
 	r.Use(func(c *gin.Context) {
 		start := time.Now()
 		c.Next()
 		log.Printf("%s %s - %v", c.Request.Method, c.Request.URL.Path, time.Since(start))
 	})
-	
+
 	api := r.Group("/api/v1")
 	{
 		api.POST("/text/process", gateway.processText)
 		api.POST("/sentiment/analyze", gateway.analyzeSentiment)
+		api.POST("/chat/stream", gateway.streamChat)
+
+		api.POST("/image/upload", gateway.proxyMultipart("http://image-service:8003/upload"))
+		api.POST("/image/caption", gateway.proxyMultipart("http://image-service:8003/caption"))
+		api.POST("/image/analyze", gateway.proxyMultipart("http://image-service:8003/analyze"))
+		api.POST("/image/info", gateway.proxyMultipart("http://image-service:8003/info"))
+
 		api.GET("/metrics", gateway.getMetrics)
 		api.GET("/health", gateway.health)
 	}
