@@ -45,6 +45,15 @@ services:
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
 
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: http://gateway:8080
+    depends_on:
+      - gateway
+
   qdrant:
     image: qdrant/qdrant:latest
     ports:
