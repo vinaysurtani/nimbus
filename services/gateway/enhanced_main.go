@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -301,6 +302,52 @@ func (g *Gateway) streamChat(c *gin.Context) {
 	}
 }
 
+func (g *Gateway) proxyJSON(target string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		body, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request"})
+			return
+		}
+		resp, err := g.httpClient.Post(target, "application/json", bytes.NewBuffer(body))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "service unavailable"})
+			return
+		}
+		defer resp.Body.Close()
+		respBody, _ := io.ReadAll(resp.Body)
+		c.Data(resp.StatusCode, "application/json", respBody)
+	}
+}
+
+func (g *Gateway) ragQuery(c *gin.Context) {
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request"})
+		return
+	}
+
+	hash := sha256.Sum256(body)
+	cacheKey := fmt.Sprintf("rag:%x", hash)
+
+	cached, err := g.redis.Get(context.Background(), cacheKey).Result()
+	if err == nil {
+		c.Data(http.StatusOK, "application/json", []byte(cached))
+		return
+	}
+
+	resp, err := g.httpClient.Post("http://rag-service:8004/query", "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "rag service unavailable"})
+		return
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+
+	g.redis.Set(context.Background(), cacheKey, respBody, 5*time.Minute)
+	c.Data(resp.StatusCode, "application/json", respBody)
+}
+
 func main() {
 	gateway := NewGateway()
 
@@ -323,6 +370,9 @@ func main() {
 		api.POST("/image/caption", gateway.proxyMultipart("http://image-service:8003/caption"))
 		api.POST("/image/analyze", gateway.proxyMultipart("http://image-service:8003/analyze"))
 		api.POST("/image/info", gateway.proxyMultipart("http://image-service:8003/info"))
+
+		api.POST("/rag/ingest", gateway.proxyJSON("http://rag-service:8004/ingest"))
+		api.POST("/rag/query", gateway.ragQuery)
 
 		api.GET("/metrics", gateway.getMetrics)
 		api.GET("/health", gateway.health)

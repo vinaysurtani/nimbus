@@ -46,7 +46,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        service: [text-service, sentiment-service, image-service, gateway]
+        service: [text-service, sentiment-service, image-service, gateway, rag-service]
     
     steps:
     - uses: actions/checkout@v4
