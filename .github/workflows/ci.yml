@@ -41,6 +41,9 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     strategy:
       matrix:
         service: [text-service, sentiment-service, image-service, gateway]
@@ -63,7 +66,7 @@ jobs:
         tags: |
           type=ref,event=branch
           type=ref,event=pr
-          type=sha,prefix={{branch}}-
+          type=sha
     
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
